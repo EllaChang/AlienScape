@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+
+<head>
+
+    <title> This is a game. </title>
+
+    <script src="three.min.js"></script>
+    <script src="GLTFLoader.js"></script>
+    <script src="KeyboardState.js"></script>
+    <script src="helvetiker_regular.typeface.js"></script>
+
+    <script>
+
+        var scene, camera, renderer, canvas, sphere;
+        var man, LLeg, RLeg;
+        var keyboard = new KeyboardState();
+        var alive = true;
+        var l = [];
+        var r = [];
+        var lp = [];
+        var rp = [];
+        var score = 0;
+
+        window.addEventListener("resize", resize);
+
+        function resize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function createWorld() {
+            renderer.setClearColor(0xE5ECF9); // Set background color.
+            scene = new THREE.Scene(); // Create a new scene which we can add objects to.
+            var bg = new THREE.TextureLoader().load('stars.jpg');
+            scene.background = bg;
+            var fov = 50;   // angular field of view
+            var aspect = 1 / 1;  // from canvas
+            var near = 1;
+            var far = 150;
+            camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+            camera.rotation.x = 1.2;
+            camera.position.y = -245;
+            camera.position.z = 4;
+
+            // Instantiate a loader
+            var loader = new THREE.GLTFLoader();
+
+            // Load a glTF resource
+            loader.load(
+                // here is the resource URL
+                'man.glb',
+
+                // function below is called when the resource is loaded
+                function (gltf) {
+                    scene.add(gltf.scene);
+                    scene.add(gltf.children);
+                    man = gltf.scene.getObjectByName('man');
+                    LArm = man.children[0];
+                    RArm = man.children[3];
+
+                    gltf.animations; // Array<THREE.AnimationClip>
+                    gltf.scene; // THREE.Scene
+                    gltf.scenes; // Array<THREE.Scene>
+                    gltf.cameras; // Array<THREE.Camera>
+                    gltf.asset; // Object
+                    gltf.children;
+
+                    man.scale.set(0.15, 0.15, 0.15);
+                    man.position.set(0, -240, 1.2);
+                    man.rotation.x = 1.5;
+                    man.rotation.y = 3.14;
+                },
+
+                // called while loading is progressing
+                function (xhr) {
+                    console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+                },
+
+                // called when loading has errors
+                function (error) {
+                    console.log('An error happened');
+                }
+            );
+
+            // the road
+            var texture = new THREE.TextureLoader().load('texture.jpg');
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(2, 60);
+            var material = new THREE.MeshPhongMaterial({ map: texture });
+            var geometry = new THREE.PlaneGeometry(10, 500);
+            var mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+
+            // the yellow line to follow
+            var geometry = new THREE.PlaneGeometry(0.5, 500);
+            var material = new THREE.MeshBasicMaterial({ color: 0xFCFA4A, side: THREE.DoubleSide });
+            material.opacity = 0.5;
+            var line = new THREE.Mesh(geometry, material);
+            line.position.z = 0.001;
+            scene.add(line);
+
+            // pillars on the left
+            var pillarTexture = new THREE.TextureLoader().load('red-blue.jpg');
+            var mat = pillarTexture = new THREE.MeshBasicMaterial({ map: pillarTexture });
+            var geo = new THREE.BoxGeometry(0.7, 0.7, 10);
+            for (let i = -230; i < 0; i = i + 5) {
+                var rand = Math.random();
+                if (rand > 0.5) {
+                    var sc = new THREE.Mesh(geo, mat);
+                    sc.position.x = -1.3;
+                    sc.position.y = i;
+                    sc.position.z = 1;
+                    scene.add(sc);
+                    lp.push(i);
+                    var randLeft = Math.random();
+                    if (randLeft > 0.5) var pillar = {mesh: sc, turn: "left"};
+                    else var pillar = {mesh: sc, turn: "right"};
+                    l.push(pillar);
+                }
+            }
+
+            // pillars on the right
+            for (let i = -230; i < 0; i = i + 5) {
+                var rand = Math.random();
+                if (rand > 0.5) {
+                    var sc = new THREE.Mesh(geo, mat);
+                    sc.position.x = 1.3;
+                    sc.position.y = i;
+                    sc.position.z = 1;
+                    scene.add(sc);
+                    rp.push(i);
+                    var randRight = Math.random();
+                    if (randRight > 0.5) var pillar = {mesh: sc, turn: "left"};
+                    else var pillar = {mesh: sc, turn: "right"};
+                    r.push(pillar);
+                }
+            }
+
+            // dim light shining from above
+            scene.add(new THREE.DirectionalLight(0xffffff, 0.4));
+
+            // a light to shine in the direction the camera faces
+            var viewpointLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            viewpointLight.position.set(0, 0, 1);  // shines down the z-axis
+            scene.add(viewpointLight);
+
+            var light = new THREE.PointLight(0xEFF6E2, 1, 1000);
+            light.position.set(0, -240, 3);
+            scene.add(light);
+        }
+
+        // prevent player from pressing keys for over 3 seconds
+        var leftTime = 0;
+        var rightTime = 0;
+
+        // check if the left/right arm is down
+        var left = false;
+        var right = false;
+
+        // check if the man is at the same y position as a pillar
+        var pillar = true;
+
+        function update() {
+            document.getElementById("leftTimer").innerHTML = "Left arm timer: " + (leftTime / 60).toFixed(1).toString() + "/1.00";
+            document.getElementById("rightTimer").innerHTML = "Right arm timer: " + (rightTime / 60).toFixed(1).toString() + "/1.00";
+            keyboard.update();
+            if (keyboard.pressed("A")) {
+                LArm.rotation.z = -1.5;
+                left = true;
+                if (leftTime == 60) alive = false;
+                leftTime++;
+            }
+            if (keyboard.up("A")) {
+                LArm.rotation.z = 0;
+                left = false;
+                leftTime = 0;
+            }
+
+            if (keyboard.pressed("D")) {
+                RArm.rotation.z = -1.5;
+                right = true;
+                if (rightTime == 60) alive = false;
+                rightTime++;
+            }
+            if (keyboard.up("D")) {
+                RArm.rotation.z = 0;
+                right = false;
+                rightTime = 0;
+            }
+            for (pillar of l) {
+                if (left == false && withinRange(man.position.y, pillar.mesh.position.y))
+                    alive = false;
+            }
+            for (pillar of r) {
+                if (right == false && withinRange(man.position.y, pillar.mesh.position.y))
+                    alive = false;
+            }
+
+            score++;
+            document.getElementById("score").innerHTML = "Score: " + score.toString();
+
+        }
+
+        function withinRange(m, p) {
+            if (m >= p - 0.5 && m <= p + 0.5) return true;
+        }
+
+        function render() {
+            if (alive == true) requestAnimationFrame(render);
+            if (alive == false) {
+                var retry = confirm("Game over. Try again?");
+                if (retry == true) document.location.reload();
+            }
+            for (pillar of l) {
+                if (pillar.turn == "right") pillar.mesh.rotation.z += 0.1;
+                else pillar.mesh.rotation.z -= 0.1;
+            }
+            for (pillar of r) {
+                if (pillar.turn == "right") pillar.mesh.rotation.z += 0.1;
+                else pillar.mesh.rotation.z -= 0.1;
+            }
+            man.position.y += 0.1;
+            camera.position.y += 0.1;
+            renderer.render(scene, camera);
+            update();
+        }
+
+        function init() {
+            try {
+                canvas = document.getElementById("glcanvas");
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            }
+            catch (e) {
+                document.getElementById("canvas-holder").innerHTML = "<h3><b>WebGL is not available.</b><h3>";
+                return;
+            }
+
+            // create world and render scene
+            createWorld();
+            render();
+        }
+
+    </script>
+
+</head>
+
+<body onload="init()" style="margin:0px; padding:0px">
+    <div id="canvas-holder">
+        <h3 id="score"
+            style="background: black; color: white; margin: 0; font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif">
+        </h3>
+        <h3 id="leftTimer"
+            style="background: black; color: white; margin: 0; font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif">
+        </h3>
+        <h3 id="rightTimer"
+            style="background: black; color: white; margin: 0; font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif">
+        </h3>
+        <canvas id="glcanvas"></canvas>
+    </div>
+    <div>
+        <h1>left time:</h1>
+    </div>
+</body>
+
+</html>
