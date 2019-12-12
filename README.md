@@ -9,7 +9,9 @@ There is no winning a simulator game.
 2. Beware! You can't put down either arm if no pillar appears in close enough range. Your arms simply hate being lazy.
 
 ### Keyboard Controls:
+<pre>
 hold 'A'      - put down your left arm<br/>
-release 'A'   - put up your left arm
-hold 'D'      - put down your right arm
-release 'D'   - put up your right arm
+release 'A'   - put up your left arm<br/>
+hold 'D'      - put down your right arm<br/>
+release 'D'   - put up your right arm<br/>
+</pre>
