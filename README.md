@@ -1,5 +1,7 @@
 # Newton's 1st Law Simulator
-Welcome to Newton's 1st Law Simulator! You'll be sliding down a level icy pathway where the ideal condition is met: there is zero friction.
+Welcome to Newton's 1st Law Simulator! You'll be sliding down a level icy pathway where the ideal condition is met: there is zero friction.<br/>
+
+Play it on: http://cs.smith.edu/~cs240a-aa/final_project.html<br/>
 
 The game would be hosted shortly. Below is a sneak peek if you don't want to bother downloading everything:<br/>
 ![](preview.gif)
